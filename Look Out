@@ -1,0 +1,347 @@
+
+FIRST CODE : CHEST AUDIO 
+
+#include <HCSR04.h>
+#include <SoftwareSerial.h>
+#include "RedMP3.h"
+#define RandSeed A0
+#define Trig 5
+#define Echo 6
+#define MP3_RX 7//RX of Serial MP3 module connect to D7 of Arduino
+#define MP3_TX 8//TX to D8, note that D8 can not be used as RX on Mega2560, you should modify this if you donot use Arduino UNO
+MP3 mp3(MP3_RX, MP3_TX);
+#define folderName_near 01
+#define folderName_far 02
+#define folderName_touch 03
+
+int8_t volume = 0x1a;//0~0x1e (30 adjustable level)
+int8_t folderName = 0x01;//folder name must be 01 02 03 04 ...
+int8_t fileName = 0x01; // prefix of file name must be 001xxx 002xxx 003xxx 004xxx ...
+
+HCSR04 hc(Trig,Echo);//initialisation class HCSR04 (trig pin , echo pin)
+
+void setup()
+{ 
+  pinMode(RandSeed,INPUT);
+  Serial.begin(9600); 
+  delay(500);//Requires 500ms to wait for the MP3 module to initialize  
+  mp3.setVolume(volume);
+  randomSeed(analogRead(RandSeed));
+}
+
+void loop() 
+{ 
+  Serial.println( hc.dist() ); //return current distance in serial
+  
+  float box_distance=hc.dist();
+  int audio_name=random(1,4);
+  
+  if (box_distance<30)
+  {
+    switch(audio_name)
+    {
+      case 1:
+      mp3.playWithFileName(folderName_near,001);
+      delay(5000);
+      break;
+      case 2:
+      mp3.playWithFileName(folderName_near,002);
+      delay(5000);
+      break;
+      case 3:
+      mp3.playWithFileName(folderName_near,003);
+      delay(5000);
+      break;
+    }
+  }
+  else
+  {
+    switch(audio_name)
+    {
+      case 1:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+      case 2:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+      case 3:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+    }  
+  }
+ }
+ 
+ 
+ 
+ 
+ 
+ SECOND CODE : CHEST LOCKING MECHANISM
+ 
+ #include <HCSR04.h>
+#include <SoftwareSerial.h>
+#include <Servo.h>
+Servo myservo, servoPour;
+
+#define Trig 5
+#define Echo 6
+#define myservo_pin 9
+
+int pos_locked = 90;
+int pos_unlocked = 180; 
+int pos=pos_locked;
+int is_covered;
+
+HCSR04 hc(Trig,Echo);//initialisation class HCSR04 (trig pin , echo pin)
+int box_distance;
+
+void setup() 
+{
+  Serial.begin(9600);
+  myservo.attach(myservo_pin);
+}
+
+void loop() 
+{
+  //Serial.println("Working...");
+  //Serial.println("Distance is:(cm)");
+  //Serial.println(hc.dist());
+ 
+  if(hc.dist()<30)
+  {
+    box_distance=1;
+  }
+
+  else
+  {
+     box_distance=2;
+  }
+  Serial.println(box_distance);
+  
+  if (Serial.available()>0) //recieving data on ldr
+  {
+    //Serial.println("is_covered returns:");
+    //Serial.println(is_covered);
+    is_covered=Serial.read();
+    Serial.print(is_covered);
+    if(is_covered==0)
+    {
+      if(pos==pos_locked)
+      {
+        myservo.write(pos_unlocked);
+        pos=pos_unlocked;
+        delay(100);
+      }
+    }
+     else
+    {
+      if(pos==pos_unlocked)
+      {
+        myservo.write(pos_locked); 
+        pos=pos_locked;
+        delay(100);
+      }
+    }
+  }
+  else
+  {
+    //Serial.print("No input from portrait");
+    for(int i=1;i<181;i++)
+    {
+      myservo.write(i);
+    }
+  }
+  delay(1000);
+}
+ 
+ 
+ 
+ 
+ THIRD CODE : PORTRAIT (EYES)
+ #include <SoftwareSerial.h>
+#include "RedMP3.h"
+
+#define USED_PIN1 A0
+#define USED_PIN2 A1
+
+#define MP3_RX 7//RX of Serial MP3 module connect to D7 of Arduino
+#define MP3_TX 8//TX to D8, note that D8 can not be used as RX on Mega2560, you should modify this if you donot use Arduino UNO
+MP3 mp3(MP3_RX, MP3_TX);
+#define folderName_near 01
+#define folderName_far 02
+#define folderName_touch 03
+
+#define RandSeed A0
+
+
+int8_t volume = 0x1a;//0~0x1e (30 adjustable level)
+int8_t folderName = 0x01;//folder name must be 01 02 03 04 ...
+int8_t fileName = 0x01; // prefix of file name must be 001xxx 002xxx 003xxx 004xxx ...
+
+int is_covered;
+int box_distance;
+int Output=10;
+
+void setup() 
+{ 
+  pinMode(RandSeed,INPUT);
+  Serial.begin(9600); 
+
+  delay(500);//Requires 500ms to wait for the MP3 module to initialize  
+  mp3.setVolume(volume);
+  randomSeed(analogRead(RandSeed));
+}
+
+void loop() 
+{
+  //Serial.println("Working...");
+
+ int highCounter=0;
+
+  while(highCounter<40)
+  {
+    delay(100);
+    // Show reading to serial monitor.   
+    int ldr1Status = analogRead(USED_PIN1);
+    Serial.print("A: ");
+    Serial.println(ldr1Status);
+    int ldr2Status = analogRead(USED_PIN2);
+    Serial.print("B: ");
+    Serial.println(ldr2Status);
+ 
+    if((ldr1Status<=100)&&(ldr2Status<=100))// LDR sending signal
+    {
+      
+      if(highCounter>15)
+      {
+       is_covered=1;
+       digitalWrite(Output, HIGH); //Output on
+       Serial.println("LDR is DARK, LED is ON"); //Change later
+       delay(5000);
+       goto out; 
+       highCounter=0;
+      }
+      highCounter=highCounter+1;
+    }
+    else
+    {
+      is_covered=0;
+      digitalWrite(Output, LOW); //Output off
+      Serial.println("---------------"); 
+      goto out;
+    }
+  }  
+  out:
+  delay(100);
+  Serial.write(is_covered);
+  //Serial.println("Sending is_covered over:");
+  //Serial.println(is_covered);
+
+  int audio_name=random(1,4);
+
+  if(Serial.available())
+  {
+    box_distance=Serial.read();
+   // Serial.println("box distance is");
+    //Serial.println(box_distance);
+    if (box_distance==49) //recieving data on distance  
+  {
+    switch(audio_name)
+    {
+      case 1:
+      mp3.playWithFileName(folderName_near,001);
+      delay(5000);
+      break;
+      case 2:
+      mp3.playWithFileName(folderName_near,002);
+      delay(5000);
+      break;
+      case 3:
+      mp3.playWithFileName(folderName_near,003);
+      delay(5000);
+      break;
+    }
+  }
+   if (box_distance==50)
+   {
+    switch(audio_name)
+    {
+      case 1:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+      case 2:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+      case 3:
+      mp3.playWithFileName(folderName_far,001);
+      delay(5000);
+      break;
+    } 
+   }
+  }
+  else
+  {
+    //Serial.println("No input from box");
+  }
+  delay(100);
+}
+ 
+ 
+ 
+ 
+CHEST SPECIFICATIONS : 
+Can use this link to be the sample : https://www.youtube.com/watch?v=nN62zlH8ALI
+
+Parts and Tools :
+	1:cardboard
+	2:glue gun
+	3:acrylic paint 
+	4:cutting tools 
+
+
+dimensions are :
+
+	Chest's Body 25x10x10cm 
+
+	Chest Lid 26x25cm (26 cm for the circumference) as shown in the video
+
+Extra notes :
+- create a hole on the lid for an HC-SR04 sensor
+- cover the bottom part of the lid with a 25x10cm cardboard for circuit to be placed
+- paint chest with burnt sienna brown (prefered by acrylic paint) 
+
+Price : 
+- Acrylic paint / 30,75, or 120ml = 1-5 dollars (https://shopee.sg/find_similar_products?catid=11&itemid=2221951853&shopid=43271155)
+
+
+
+ 
+ PORTRAIT SPECIFICATIONS : 
+Example and guide for portrait frame dimensions https://www.youtube.com/watch?v=yzuKjgGzKwc
+
+Parts and Tools :
+	1:cardboard
+	2:glue gun
+	3:picture 
+	4:spray paint
+	5:cutting tools 
+
+Dimensions are :
+ 
+	-portrait : 18x24cm
+	-Outer frame : 22x28cm
+	-Cardboard electronic circuit casing behind frame : 22x28x4cm
+
+
+
+
+ 
+ 
+ 
+ 
+ 
+ 
